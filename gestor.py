@@ -12,7 +12,6 @@ pedidos = datos.PEDIDOS
 def procesar_ventas():
     while pedidos:
         p = pedidos[-1]
-        time.sleep(0.001)
         if inventario[p[1]] >= p[2]:
             time.sleep(0.001)
             inventario[p[1]] -= p[2]
