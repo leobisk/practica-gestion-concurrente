@@ -9,6 +9,7 @@ inventario = datos.STOCK_INICIAL
 
 pedidos = datos.PEDIDOS
 
+lock = threading.Lock()
 
 def procesar_ventas():
     while True:
