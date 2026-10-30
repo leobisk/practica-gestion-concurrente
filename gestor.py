@@ -10,8 +10,6 @@ inventario = datos.STOCK_INICIAL
 pedidos = datos.PEDIDOS
 
 
-lock = threading.Lock()
-
 def procesar_ventas():
     while True:
         if not pedidos:
@@ -24,7 +22,7 @@ def procesar_ventas():
 
 
 hilos = []
-print(sum([prod for prod in inventario.values()]))
+
 for caja in range(NUM_CAJAS - 1):
     h = threading.Thread(target=procesar_ventas)
     h.start()
@@ -33,4 +31,4 @@ for caja in range(NUM_CAJAS - 1):
 for h in hilos:
     h.join()
 
-print(sum([prod for prod in inventario.values()]))
+print("Saltan errores de varios hilos porque intentan acceder a un elemento queya  fue borrado por otro hilo")
