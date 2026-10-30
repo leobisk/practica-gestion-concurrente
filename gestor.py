@@ -14,14 +14,13 @@ lock = threading.Lock()
 
 def procesar_ventas():
     while True:
-        with lock:
-            if not pedidos:
-                break
-            p = pedidos[-1]
-            if inventario[p[1]] >= p[2]:
-                time.sleep(0.001)
-                inventario[p[1]] -= p[2]
-            del pedidos[-1]
+        if not pedidos:
+            break
+        p = pedidos[-1]
+        if inventario[p[1]] >= p[2]:
+            time.sleep(0.001)
+            inventario[p[1]] -= p[2]
+        del pedidos[-1]
 
 
 hilos = []
