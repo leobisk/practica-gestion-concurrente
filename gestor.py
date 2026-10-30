@@ -12,13 +12,14 @@ pedidos = datos.PEDIDOS
 
 def procesar_ventas():
     while True:
-        if not pedidos:
-            break
-        p = pedidos[-1]
-        if inventario[p[1]] >= p[2]:
-            time.sleep(0.001)
-            inventario[p[1]] -= p[2]
-        del pedidos[-1]
+        with lock:
+            if not pedidos:
+                break
+            p = pedidos[-1]
+            if inventario[p[1]] >= p[2]:
+                time.sleep(0.001)
+                inventario[p[1]] -= p[2]
+            del pedidos[-1]
 
 
 hilos = []
@@ -31,4 +32,4 @@ for caja in range(NUM_CAJAS - 1):
 for h in hilos:
     h.join()
 
-print("Saltan errores de varios hilos porque intentan acceder a un elemento queya  fue borrado por otro hilo")
+print("Con el nuevo lock no saltan errores porque se quita la concurrencia de leer y eliminar los datos con el lock")
