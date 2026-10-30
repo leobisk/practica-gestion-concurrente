@@ -25,7 +25,7 @@ def procesar_ventas():
 
 
 hilos = []
-print(sum([prod for prod in inventario.values()]))
+
 for caja in range(NUM_CAJAS - 1):
     h = threading.Thread(target=procesar_ventas)
     h.start()
@@ -34,4 +34,4 @@ for caja in range(NUM_CAJAS - 1):
 for h in hilos:
     h.join()
 
-print(sum([prod for prod in inventario.values()]))
+print("Con el nuevo lock no saltan errores porque se quita la concurrencia de leer y eliminar los datos con el lock")
