@@ -21,7 +21,6 @@ condicion = threading.Condition()
 
 
 def procesar_ventas():
-    global terminales_activos, max_activos
     while True:
         with semaforo:  # Dentro del bucle para que este sea concurrente pero las operaciones estan limitadas por el semaforo
             with lock:
