@@ -1,3 +1,4 @@
+from random import randint
 import threading
 import time
 
@@ -6,6 +7,8 @@ import datos
 NUM_CAJAS = datos.NUM_CAJAS
 
 NUM_TERMINALES = datos.NUM_TERMINALES
+
+REVISORES = datos.NUM_REVISORES
 
 reposiciones = datos.REPOSICIONES
 
@@ -19,6 +22,7 @@ semaforo = threading.Semaphore(NUM_TERMINALES)
 
 condicion = threading.Condition()
 
+barrera = threading.Barrier(REVISORES)
 
 def procesar_ventas():
     while True:
@@ -48,6 +52,14 @@ def reponedor():
         condicion.notify_all()  # Usa all porque solo se repone una vez y puede haber mas de un hilo esperando
     print("Inventario repuesto")
 
+def revisor():
+    time.sleep(randint(1,4)) # Simula revisar algo con duracion desconocida
+    print("1ª fase de la revision completada, esperando al resto de revisores...")
+    barrera.wait()
+    print("Empezando 2ª fase")
+    time.sleep(1)
+
+
 hilos = []
 
 threading.Thread(target=reponedor).start()
@@ -59,3 +71,13 @@ for caja in range(NUM_CAJAS - 1):
 
 for h in hilos:
     h.join()
+
+revisores = []
+
+for _ in range(REVISORES):
+    h = threading.Thread(target=revisor)
+    h.start()
+    revisores.append(h)
+
+for r in revisores:
+    r.join()
