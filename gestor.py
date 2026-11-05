@@ -1,83 +1,96 @@
-from random import randint
 import threading
 import time
+from random import randint
 
 import datos
 
-NUM_CAJAS = datos.NUM_CAJAS
 
-NUM_TERMINALES = datos.NUM_TERMINALES
+class GestorInventario:
+    def __init__(self, stock_inicial, reposiciones):
+        self.inventario = stock_inicial
+        self.reposiciones = reposiciones
+        self.lock = threading.RLock()
+        self.condicion = threading.Condition(
+            self.lock
+        )  # La condicion recibe el lock para que cuando un hilo la esté esperando
+        # pueda liberarlo permitiendo que el resto de cajas continuen mientras esta espera
 
-REVISORES = datos.NUM_REVISORES
+    def hay_stock(self, prod, cant) -> bool:
+        with self.lock:
+            return self.inventario[prod] >= cant
 
-reposiciones = datos.REPOSICIONES
+    def descontar(self, prod, cant):
+        with self.lock:
+            self.inventario[prod] -= cant
 
-inventario = datos.STOCK_INICIAL
+    # Operacion con lock que llama a hay_stock() que tambien esta protegida y
+    # mientras hay_stock devuelve True llama a descontar() que tambien está protegida
+    def vender(self, prod, cant):
+        with self.lock:
+            time.sleep(0.1)
+            if self.hay_stock(prod, cant):
+                self.descontar(prod, cant)
+            else:
+                print(f"Sin stock de {prod}, esperando reposición")
+                self.condicion.wait()
+                if self.hay_stock(prod, cant):
+                    self.descontar(prod, cant)
 
+    def reponer(self):
+        time.sleep(4)
+        with self.lock:
+            for _, prod, cant in self.reposiciones:
+                self.inventario[prod] += cant
+            self.condicion.notify_all()
+
+
+gestor = GestorInventario(datos.STOCK_INICIAL, datos.REPOSICIONES)
 pedidos = datos.PEDIDOS
+lock_pedidos = threading.Lock()
+semaforo = threading.Semaphore(datos.NUM_TERMINALES)
+barrera = threading.Barrier(datos.NUM_REVISORES)
+resumen = {}
 
-lock = threading.Lock()
 
-semaforo = threading.Semaphore(NUM_TERMINALES)
-
-condicion = threading.Condition()
-
-barrera = threading.Barrier(REVISORES)
-
-def procesar_ventas():
+def caja():
     while True:
-        with semaforo:  # Dentro del bucle para que este sea concurrente pero las operaciones estan limitadas por el semaforo
-            with lock:
-                if not pedidos:
-                    break
-                p = pedidos[-1]
-                if inventario[p[1]] >= p[2]:
-                    inventario[p[1]] -= p[2]
-                else:
-                    with condicion:
-                        print("Sin stock, esperando reposicion")
-                        condicion.wait()
-                        if inventario[p[1]] >= p[2]:
-                            inventario[p[1]] -= p[2]
-                            print("Venta realizada con exito")
-                        else:
-                            print("Sigue faltando stock")
-                del pedidos[-1]
+        with lock_pedidos:
+            if not pedidos:
+                return
+            _, prod, cant = pedidos.pop()
+        with semaforo:
+            gestor.vender(prod, cant)
 
-def reponedor():
-    time.sleep(3)
-    with condicion:
-        for _, prod, stock in reposiciones:
-            inventario[prod] += stock
-        condicion.notify_all()  # Usa all porque solo se repone una vez y puede haber mas de un hilo esperando
-    print("Inventario repuesto")
 
-def revisor():
-    time.sleep(randint(1,4)) # Simula revisar algo con duracion desconocida
-    print("1ª fase de la revision completada, esperando al resto de revisores...")
+def revisor(i, productos):
+    for p in productos[0:len(productos) // 2]:
+        resumen[p] = gestor.inventario[p]
+    time.sleep(randint(1, 4))
+    print(f"Revisor {i}: fase 1 completada")
     barrera.wait()
-    print("Empezando 2ª fase")
+    print(f"Revisor {i}: fase 2")
+    for p in productos[len(productos) // 2:]:
+        resumen[p] = gestor.inventario[p]
     time.sleep(1)
 
 
-hilos = []
+if __name__ == "__main__":
+    print("Iniciando Ejecucion...\n")
+    threading.Thread(target=gestor.reponer).start()
 
-threading.Thread(target=reponedor).start()
+    cajas = [threading.Thread(target=caja) for _ in range(datos.NUM_CAJAS)]
+    for h in cajas:
+        h.start()
+    for h in cajas:
+        h.join()
+    print("\nPedidos pendientes completados, iniciando revisión...\n")
+    productos = list(gestor.inventario)
+    revisores = [threading.Thread(target=revisor, args=(i, productos[i::datos.NUM_REVISORES])) for i in range(datos.NUM_REVISORES)]
+    for r in revisores:
+        r.start()
+    for r in revisores:
+        r.join()
 
-for caja in range(NUM_CAJAS - 1):
-    h = threading.Thread(target=procesar_ventas)
-    h.start()
-    hilos.append(h)
-
-for h in hilos:
-    h.join()
-
-revisores = []
-
-for _ in range(REVISORES):
-    h = threading.Thread(target=revisor)
-    h.start()
-    revisores.append(h)
-
-for r in revisores:
-    r.join()
+    print("\nInventario final:\n")
+    for prod, stock in resumen.items():
+        print(f"{prod:<25} {stock}")
